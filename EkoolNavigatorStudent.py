@@ -28,7 +28,6 @@ from kivy.lang.builder import Builder
 Logger.setLevel(10)
 
 KV = '''
-#:import multiprocessing multiprocessing
 
 
 <Content>
@@ -122,21 +121,25 @@ class MyScreen(MDScreen):
 	def SubmitButtonEvent(self):
 		multiprocessing.freeze_support()
 		multiprocessing.Process(target=Ekool.EventLoginCheck, args=(self,self.username.text, self.password.text,), name= "Event_CheckLogin", daemon=True).start()
-
+		
 
 	def RefreshButtonEvent(self):
 		multiprocessing.freeze_support()
-		comms = multiprocessing.Queue()
-		multiprocessing.Process(target=Ekool.EventRefreshInfo,args=(self,self.username.text, self.password.text, comms), name= "EventRefreshInfo", daemon=True).start()
-		RetrivedGrades:dict = comms.get(block= True)
-		for i in RetrivedGrades:
+		comms1 = multiprocessing.Queue()
+		#comms2 = multiprocessing.Queue()
+		multiprocessing.Process(target=Ekool.EventRefreshInfo,args=(self,self.username.text, self.password.text, comms1), name= "EventRefreshInfo", daemon=True).start()
+		
+		
+		GradesStorage:dict = comms1.get(block= True)
+		
+		for i in GradesStorage:
 			self.ids.box.add_widget(
     			MDExpansionPanel(
 					size_hint = (1.0, 1.0),
     	    		panel_cls=MDExpansionPanelTwoLine(
     	    	    	text=f"{i}",
-    	    	    	secondary_text=f"{RetrivedGrades[f'{i}']}",
-    	    	    	tertiary_text="Tertiary text",
+    	    	    	secondary_text=f"{GradesStorage[i]}".replace("[","").replace("]","").replace("'",""),
+    	    	    	tertiary_text=f"Lesson average percent is: {Ekool.EventMassListAverage(Ekool, GradesStorage[i])}",
     				    )
     				)
 					)
@@ -149,7 +152,7 @@ class Ekool(MDApp):
 	GradesStorage = {}
 	LastScanTime = None
 	ScanFrequency:timedelta = timedelta(minutes = 10) #
-	chromedriverpath:Path = f"{Path(f'{os.path.dirname(os.path.abspath(__file__))}') / 'chromedriver'}"
+	chromedriverpath:Path = "/home/sam/Documents/Coding/AdvancedGradeCalculator/chromedriver" #f"{Path(f'{os.path.dirname(os.path.abspath(__file__))}') / 'chromedriver'}"
 	#Set up Selenium instance with default arguments
 	chrome_options = Options()
 		#Remove argument '--headless' if debugging is enabled
@@ -160,7 +163,7 @@ class Ekool(MDApp):
 	chrome_options.add_argument('--no-sandbox')
 	chrome_options.add_argument('--disable-dev-shm-usage')
 		#Define default Chrome Service object
-	chrome_service = Service("/chromedriver")
+	chrome_service = Service("/home/sam/Documents/Coding/AdvancedGradeCalculator/chromedriver")
 	ChromeBrowser = webdriver.Chrome(options=chrome_options, service=chrome_service)
 	Logger.info("Ekool:" + " Login backend initialized")
 
@@ -169,10 +172,11 @@ class Ekool(MDApp):
 		self.theme_cls.primary_palette = "Purple"
 		return Builder.load_string(KV)
 
-	def EventRefreshInfo(self, username:str, password:str, queue):
+	def EventRefreshInfo(self, username:str, password:str, queue:multiprocessing.Queue, ):
 		if Ekool.Loggedin(Ekool):
 			Ekool.RetrieveGrades(Ekool)
 			queue.put(Ekool.GradesStorage)
+			#queue2.put(Ekool.LessonAverage)
 		else:
 			Logger.info("Ekool:" +"Session expired! Attempting reconnect...")
 			Ekool.Login(Ekool, username, password)
@@ -320,6 +324,40 @@ class Ekool(MDApp):
 		percentGrades=[x for x in percentGrades if(x!="IGNORE")]
 			#return the lesson grade average percent
 		return round(sum(percentGrades)/len(percentGrades), 2)
+	
+	def EventMassListAverage(self,list:list, trimester:int = None):
+		x = self.ListAverage(self, list, trimester)
+		return x if (isinstance(x, str)) else f"{int(x)}%"
+
+	def ListAverage(self, list:list, trimester:int = None):
+		"""Returns requested lesson's average"""
+			#make a quick swap from argument variable to a local one to avoid any unstability
+		self.SetGradeValue(self,"A", 1.00)
+		self.SetGradeValue(self,"B", 0.90)
+		self.SetGradeValue(self,"C", 0.75)
+		self.SetGradeValue(self,"D", 0.60)
+		self.SetGradeValue(self,"E", 0.50)
+		self.SetGradeValue(self,"F", 0.00)
+		self.SetGradeValue(self,"AR", "IGNORE")
+		self.SetGradeValue(self,"0", "IGNORE")
+		self.SetGradeValue(self,"MA", "IGNORE")
+			#A representation of the more complex two-liner for easier debugging
+		"""percentGrades=[]
+		for g in self.GradesStorage[lesson]:
+			if(g=="IGNORE"):
+				continue
+			else:
+				tmp:str=self.GradeEquivalent(g)
+				if(tmp=="IGNORE"):
+					continue
+				else:
+					percentGrades.append(tmp)"""
+			#Take the grades and convert them into their equivalents in percent, make sure that grades marked "IGNORE" are left out of the equation
+		Logger.debug(f"Ekool:" +" Calculating lesson average for list")
+		percentGrades=[self.GradeEquivalent(self=self,Grade=g) for g in list if(g!="IGNORE")]
+		percentGrades=[x for x in percentGrades if(x!="IGNORE")]
+			#return the lesson grade average percent
+		return round(sum(percentGrades)/len(percentGrades), 2) if (len(percentGrades) > 0) else "Not enough info to calculate lesson average"
 	
 	def SetGradeValue(self, Grade:str, value):
 		"""Defines a grade value.
