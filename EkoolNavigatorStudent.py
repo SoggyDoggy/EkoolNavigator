@@ -25,7 +25,7 @@ import multiprocessing
 from kivy.properties import ObjectProperty, BooleanProperty
 
 from kivy.lang.builder import Builder
-Logger.setLevel(10)
+# Logger.setLevel(10) #sets debugger on verbose
 
 KV = '''
 
@@ -138,8 +138,8 @@ class MyScreen(MDScreen):
 					size_hint = (1.0, 1.0),
     	    		panel_cls=MDExpansionPanelTwoLine(
     	    	    	text=f"{i}",
-    	    	    	secondary_text=f"{GradesStorage[i]}".replace("[","").replace("]","").replace("'",""),
-    	    	    	tertiary_text=f"Lesson average percent is: {Ekool.EventMassListAverage(Ekool, GradesStorage[i])}",
+    	    	    	secondary_text=f"{GradesStorage[i]}".replace("[","").replace("]","").replace("'","") if f"{GradesStorage[i]}".replace("[","").replace("]","").replace("'","") != "" else "No Grades",
+    	    	    	tertiary_text=f"{Ekool.EventMassListAverage(Ekool, GradesStorage[i])}",
     				    )
     				)
 					)
@@ -327,7 +327,7 @@ class Ekool(MDApp):
 	
 	def EventMassListAverage(self,list:list, trimester:int = None):
 		x = self.ListAverage(self, list, trimester)
-		return x if (isinstance(x, str)) else f"{int(x)}%"
+		return x if (isinstance(x, str)) else f"Lesson average percent is: {int(x)}%"
 
 	def ListAverage(self, list:list, trimester:int = None):
 		"""Returns requested lesson's average"""
@@ -357,7 +357,7 @@ class Ekool(MDApp):
 		percentGrades=[self.GradeEquivalent(self=self,Grade=g) for g in list if(g!="IGNORE")]
 		percentGrades=[x for x in percentGrades if(x!="IGNORE")]
 			#return the lesson grade average percent
-		return round(sum(percentGrades)/len(percentGrades), 2) if (len(percentGrades) > 0) else "Not enough info to calculate lesson average"
+		return round(sum(percentGrades)/len(percentGrades)*100, 2) if (len(percentGrades) > 0) else "Not enough info to calculate lesson average"
 	
 	def SetGradeValue(self, Grade:str, value):
 		"""Defines a grade value.
@@ -383,7 +383,7 @@ class Ekool(MDApp):
 			self.GradeValueStorage[f"{Grade}"] = newvalue
 		else: 
 			raise TypeError(Grade)
-		Logger.info(f' New grade value "{newvalue}" set for grade "{Grade}"')
+		Logger.debug(f' New grade value "{newvalue}" set for grade "{Grade}"')
 
 	def GradeEquivalent(self, Grade:str):
 		"""Returns the percent equivalent of passed grade. Raises exception GradeValueNotDefined() if the value of such grade hasn't been defined"""
