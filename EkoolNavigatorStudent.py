@@ -2,6 +2,8 @@
 #Config.set('graphics', 'resizable', False)
 import time
 import os.path
+import kivy
+import kivymd
 from kivy.logger import Logger
 from pathlib import Path
 from datetime import datetime
@@ -21,6 +23,9 @@ from kivymd.uix.screen import MDScreen
 from kivymd.uix.button import MDRaisedButton
 from kivymd.uix.card import MDCard
 from kivymd.uix.widget import Widget
+from kivymd.uix.textfield import MDTextField
+from kivymd.uix.scrollview import MDScrollView
+
 import multiprocessing
 from kivy.properties import ObjectProperty, BooleanProperty
 
@@ -150,7 +155,6 @@ class MyScreen(MDScreen):
 class Ekool(MDApp):
 	GradeValueStorage = {}
 	GradesStorage = {}
-	LastScanTime = None
 	ScanFrequency:timedelta = timedelta(minutes = 10) #
 	chromedriverpath:Path = f"{Path(f'{os.path.dirname(os.path.abspath(__file__))}') / 'chromedriver.exe'}"
 
@@ -169,9 +173,8 @@ class Ekool(MDApp):
 		chrome_service = Service(chromedriverpath)
 		ChromeBrowser = webdriver.Chrome(options=chrome_options, service=chrome_service)
 		Logger.info("Ekool:" + " Login backend initialized")
-	except selenium.common.exceptions.WebDriverException:
-		Logger.fatal("No version of Google Chrome installed! Please install Google Chrome and run again...")
-		exit()
+	except selenium.common.exceptions.WebDriverException as e:
+		Logger.fatal(f"No version of Google Chrome installed! Please install Google Chrome and run again... \n {e}")
 	
 	def build(self):
 		self.theme_cls.theme_style = "Dark"
@@ -302,18 +305,10 @@ class Ekool(MDApp):
 				#Store gathered grades in a intance wide storage variable
 			self.GradesStorage[f'{LessonName}'] = tempListStorage
 				#Save the last time that the grades were checked
-			self.LastScanTime = time.gmtime()
 		Logger.info(f"Ekool:" +" Grades retrieved")
 
-	def LessonAverage(self, lesson:str, trimester:int = None) -> float:
+	def LessonAverage(self, lesson:str) -> float:
 		"""Returns requested lesson's average"""
-			#make a quick swap from argument variable to a local one to avoid any unstability
-		localtrimesterswap = trimester
-			#Check if the last scan time was in the bounds of defined scan frequency and if not, update the Grades stored
-		last_scan_time = datetime(year=self.LastScanTime.tm_year, month=self.LastScanTime.tm_mon, day=self.LastScanTime.tm_mday, hour=self.LastScanTime.tm_hour, minute=self.LastScanTime.tm_min, second=self.LastScanTime.tm_sec)
-		if last_scan_time > (last_scan_time + self.ScanFrequency):
-			self.RetrieveGrades(trimester=localtrimesterswap)
-			#A representation of the more complex two-liner for easier debugging
 		"""percentGrades=[]
 		for g in self.GradesStorage[lesson]:
 			if(g=="IGNORE"):
