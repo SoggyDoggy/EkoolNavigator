@@ -120,15 +120,15 @@ class MyScreen(MDScreen):
 
 	def SubmitButtonEvent(self):
 		multiprocessing.freeze_support()
-		multiprocessing.Process(target=Ekool.EventLoginCheck, args=(self,self.username.text, self.password.text,), name= "Event_CheckLogin", daemon=True).start()
-		
+		#multiprocessing.Process(target=Ekool.EventLoginCheck, args=(self,self.username.text, self.password.text,), name= "Event_CheckLogin", daemon=True).start()
+		Ekool.EventLoginCheck(self,self.username.text, self.password.text)
 
 	def RefreshButtonEvent(self):
 		multiprocessing.freeze_support()
 		comms1 = multiprocessing.Queue()
 		#comms2 = multiprocessing.Queue()
-		multiprocessing.Process(target=Ekool.EventRefreshInfo,args=(self,self.username.text, self.password.text, comms1), name= "EventRefreshInfo", daemon=True).start()
-		
+		#multiprocessing.Process(target=Ekool.EventRefreshInfo,args=(self,self.username.text, self.password.text, comms1), name= "EventRefreshInfo", daemon=True).start()
+		Ekool.EventRefreshInfo(self,self.username.text, self.password.text, comms1)
 		
 		GradesStorage:dict = comms1.get(block= True)
 		
@@ -152,7 +152,8 @@ class Ekool(MDApp):
 	GradesStorage = {}
 	LastScanTime = None
 	ScanFrequency:timedelta = timedelta(minutes = 10) #
-	chromedriverpath:Path = "/home/sam/Documents/Coding/AdvancedGradeCalculator/chromedriver" #f"{Path(f'{os.path.dirname(os.path.abspath(__file__))}') / 'chromedriver'}"
+	chromedriverpath:Path = f"{Path(f'{os.path.dirname(os.path.abspath(__file__))}') / 'chromedriver.exe'}"
+
 	#Set up Selenium instance with default arguments
 	chrome_options = Options()
 		#Remove argument '--headless' if debugging is enabled
@@ -162,11 +163,16 @@ class Ekool(MDApp):
 		Logger.debug(f"Ekool:" +" Logger level DEBUG! Chrome --headless launch switch automatically disabled")
 	chrome_options.add_argument('--no-sandbox')
 	chrome_options.add_argument('--disable-dev-shm-usage')
+	chrome_options._binary_location = f"{Path(f'{os.path.dirname(os.path.abspath(__file__))}') /'GoogleChromePortable64'/ 'App' / 'Chrome-bin' / 'chrome.exe'}"
 		#Define default Chrome Service object
-	chrome_service = Service("/home/sam/Documents/Coding/AdvancedGradeCalculator/chromedriver")
-	ChromeBrowser = webdriver.Chrome(options=chrome_options, service=chrome_service)
-	Logger.info("Ekool:" + " Login backend initialized")
-
+	try:
+		chrome_service = Service(chromedriverpath)
+		ChromeBrowser = webdriver.Chrome(options=chrome_options, service=chrome_service)
+		Logger.info("Ekool:" + " Login backend initialized")
+	except selenium.common.exceptions.WebDriverException:
+		Logger.fatal("No version of Google Chrome installed! Please install Google Chrome and run again...")
+		exit()
+	
 	def build(self):
 		self.theme_cls.theme_style = "Dark"
 		self.theme_cls.primary_palette = "Purple"
